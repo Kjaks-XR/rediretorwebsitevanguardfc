@@ -1,48 +1,209 @@
 <!DOCTYPE html>
-<html>
+<html lang="tr">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Loading...</title>
 <style>
-body {
+  * {
     margin: 0;
-    background: #0d0d0d;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    background-color: #0a0a0a;
     display: flex;
     justify-content: center;
     align-items: center;
     height: 100vh;
     overflow: hidden;
-}
-.loader {
-    width: 80px;
-    height: 80px;
-    border: 8px solid #222;
-    border-top: 8px solid #00ffcc;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-}
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-iframe {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+
+  /* Grey grid background */
+  .grid-bg {
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(80, 80, 80, 0.12) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(80, 80, 80, 0.12) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Subtle red radial glow at center */
+  .glow {
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse 60% 50% at 50% 50%, rgba(180, 0, 0, 0.08) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 32px;
+  }
+
+  /* Ring spinner */
+  .spinner {
+    position: relative;
+    width: 72px;
+    height: 72px;
+  }
+
+  .spinner::before,
+  .spinner::after {
+    content: '';
     position: absolute;
-    width: 100%;
+    border-radius: 50%;
+  }
+
+  .spinner::before {
+    inset: 0;
+    border: 2px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .spinner::after {
+    inset: 0;
+    border: 2px solid transparent;
+    border-top-color: #cc0000;
+    border-right-color: rgba(204, 0, 0, 0.3);
+    animation: spin 0.9s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  /* Inner dot pulse */
+  .dot {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 8px;
+    height: 8px;
+    background: #cc0000;
+    border-radius: 50%;
+    animation: pulse 1.8s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    50% { opacity: 0.4; transform: translate(-50%, -50%) scale(0.6); }
+  }
+
+  /* Text */
+  .label {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    animation: fade 1.8s ease-in-out infinite;
+  }
+
+  @keyframes fade {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+
+  /* Progress bar */
+  .progress-track {
+    width: 160px;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 1px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
     height: 100%;
-    border: none;
-    display: none;
-}
+    width: 0%;
+    background: #cc0000;
+    border-radius: 1px;
+    transition: width 0.1s linear;
+  }
+
+  /* Corner accents */
+  .corner {
+    position: fixed;
+    width: 20px;
+    height: 20px;
+    border-color: rgba(204, 0, 0, 0.4);
+    border-style: solid;
+  }
+  .corner-tl { top: 24px; left: 24px; border-width: 1px 0 0 1px; }
+  .corner-tr { top: 24px; right: 24px; border-width: 1px 1px 0 0; }
+  .corner-bl { bottom: 24px; left: 24px; border-width: 0 0 1px 1px; }
+  .corner-br { bottom: 24px; right: 24px; border-width: 0 1px 1px 0; }
 </style>
 </head>
 <body>
-<div class="loader"></div>
-<iframe id="site" src="localhost:5173"></iframe>
+
+<div class="grid-bg"></div>
+<div class="glow"></div>
+
+<div class="corner corner-tl"></div>
+<div class="corner corner-tr"></div>
+<div class="corner corner-bl"></div>
+<div class="corner corner-br"></div>
+
+<div class="container">
+  <div class="spinner">
+    <div class="dot"></div>
+  </div>
+  <div class="label" id="label">Yükleniyor</div>
+  <div class="progress-track">
+    <div class="progress-fill" id="progress"></div>
+  </div>
+</div>
+
 <script>
-setTimeout(function() {
-    document.querySelector(".loader").style.display = "none";
-    var frame = document.getElementById("site");
-    frame.style.display = "block";
-}, 4000);
+  const TARGET_URL = 'http://localhost:5173';
+  const DURATION = 3000;
+
+  const progressEl = document.getElementById('progress');
+  const labelEl = document.getElementById('label');
+  const start = performance.now();
+
+  const labels = [
+    { at: 0,    text: 'Yükleniyor' },
+    { at: 0.4,  text: 'Bağlanıyor' },
+    { at: 0.75, text: 'Hazırlanıyor' },
+  ];
+
+  function tick(now) {
+    const elapsed = now - start;
+    const ratio = Math.min(elapsed / DURATION, 1);
+    const eased = ratio < 0.5
+      ? 2 * ratio * ratio
+      : 1 - Math.pow(-2 * ratio + 2, 2) / 2;
+
+    progressEl.style.width = (eased * 100) + '%';
+
+    for (let i = labels.length - 1; i >= 0; i--) {
+      if (ratio >= labels[i].at) {
+        labelEl.textContent = labels[i].text;
+        break;
+      }
+    }
+
+    if (ratio < 1) {
+      requestAnimationFrame(tick);
+    } else {
+      window.location.href = TARGET_URL;
+    }
+  }
+
+  requestAnimationFrame(tick);
 </script>
 </body>
 </html>
